@@ -1,0 +1,31 @@
+# Secrets: never commit these (the judges read this repo)
+dev.env
+*.env
+!dev.env.example
+.env*
+secrets/
+*.key
+*.pem
+
+# Local practice output
+results/
+memory/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local agent settings (per person)
+.claude/settings.local.json
+
+# Test kit output
+tests/out/

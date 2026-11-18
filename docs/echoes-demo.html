@@ -1,0 +1,467 @@
+<title>Echoes</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a sonar chart table. Header with the rules, two views (replay of our bot's real match, play against a deducing bot),
+   each a board on the left and an instrument panel on the right; stacks to one column on a phone. */
+:root {
+  --paper: #E9F0EF;
+  --surface: #F8FBFB;
+  --ink: #12303A;
+  --muted: #536D78;
+  --line: #C3D2D4;
+  --ours: #08737D;
+  --ours-soft: #CBE5E3;
+  --enemy: #A9530F;
+  --enemy-soft: #F4E0CA;
+  --mark: #FFF3B0;
+  --f-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0B171C; --surface: #11232A; --ink: #DAE7EA; --muted: #8DA5AF; --line: #284049;
+    --ours: #45C3CC; --ours-soft: #1E4F55; --enemy: #F1A24E; --enemy-soft: #3B2A16; --mark: #3B3A1A;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0B171C; --surface: #11232A; --ink: #DAE7EA; --muted: #8DA5AF; --line: #284049;
+  --ours: #45C3CC; --ours-soft: #1E4F55; --enemy: #F1A24E; --enemy-soft: #3B2A16; --mark: #3B3A1A;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1080px; margin: 0 auto; padding-block: 28px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 22px; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2.4rem, 6vw, 3.6rem); font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
+h2 { font-size: 1.25rem; font-weight: 700; }
+h3 { font-size: 0.78rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-family: var(--f-body); }
+p { margin: 0; }
+.mono { font-family: var(--f-mono); }
+header { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 28px; align-items: end; }
+.lede { font-size: 1.1rem; max-width: 34ch; margin-top: 10px; }
+.byline { color: var(--muted); font-size: 0.85rem; margin-top: 8px; }
+.rules { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.rules li { display: grid; grid-template-columns: 7.2em minmax(0, 1fr); gap: 10px; align-items: baseline; }
+.rules code { font-family: var(--f-mono); font-size: 0.86rem; font-weight: 600; color: var(--ours); }
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; border-bottom: 1px solid var(--line); }
+.tab { font: 600 0.95rem var(--f-body); color: var(--muted); background: none; border: 0; border-bottom: 3px solid transparent;
+  padding: 10px 14px; cursor: pointer; margin-bottom: -1px; }
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ours); }
+.tab:focus-visible, button:focus-visible, .cell:focus-visible { outline: 2px solid var(--ours); outline-offset: 2px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--line);
+  border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin: 0; }
+.stats div { background: var(--surface); padding: 12px 14px; display: grid; gap: 2px; }
+.stats dt { font-size: 0.78rem; color: var(--muted); order: 2; }
+.stats dd { margin: 0; font: 600 1.3rem var(--f-mono); font-variant-numeric: tabular-nums; order: 1; }
+.board { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 32px; align-items: start; }
+.board > * { min-width: 0; }
+.gridwrap { display: grid; gap: 10px; justify-items: start; }
+.grid { display: grid; grid-template-columns: 1.4em repeat(var(--n, 5), minmax(0, 1fr)); gap: 5px; width: 100%; max-width: 440px; }
+.grid.mini { max-width: 230px; gap: 3px; }
+.axis { font: 500 0.8rem var(--f-mono); color: var(--muted); display: grid; place-items: center; }
+.cell { aspect-ratio: 1; max-width: 100%; position: relative; border: 1px solid var(--line); border-radius: 7px;
+  background: var(--surface); display: grid; place-items: center; font-family: var(--f-mono); color: var(--ink); padding: 0; }
+.mini .cell { border-radius: 4px; }
+button.cell { cursor: pointer; }
+button.cell:hover:not(:disabled) { border-color: var(--ours); }
+button.cell:disabled { cursor: default; }
+.cell.possible { background: var(--ours-soft); border-color: var(--ours); }
+.cell.threat { background: var(--enemy-soft); border-color: var(--enemy); }
+.cell.ring::after { content: ""; position: absolute; inset: 3px; border: 2px dashed var(--ours); border-radius: 5px; opacity: 0.55; }
+.dot { width: 44%; aspect-ratio: 1; border-radius: 50%; background: var(--ours); box-shadow: 0 0 0 4px var(--ours-soft); }
+.foe { width: 46%; aspect-ratio: 1; border-radius: 50%; border: 3px solid var(--enemy); background: var(--enemy-soft); }
+.mini .dot { box-shadow: none; }
+.mini .foe { border-width: 2px; }
+.echo { position: absolute; right: 4px; bottom: 2px; font-size: 0.8rem; font-weight: 600; color: var(--ours); }
+.echo.them { color: var(--enemy); left: 4px; right: auto; }
+.mini .echo { font-size: 0.68rem; right: 2px; bottom: 0; }
+.mini .echo.them { left: auto; right: 2px; }
+.pingmark { font-size: 0.72rem; color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 0.82rem; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 14px; height: 14px; border-radius: 4px; display: inline-block; border: 1px solid var(--line); }
+.sw.p { background: var(--ours-soft); border-color: var(--ours); }
+.sw.t { background: var(--enemy-soft); border-color: var(--enemy); }
+.sw.d { background: var(--ours); border-radius: 50%; border: 0; }
+.sw.f { background: var(--enemy-soft); border: 2px solid var(--enemy); border-radius: 50%; }
+.panel { display: grid; gap: 16px; }
+.roundhead { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; }
+.caption { font-size: 1.02rem; min-height: 4.6em; }
+.caption.key { background: var(--mark); border-radius: 8px; padding: 10px 12px; margin-inline: -12px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.btn { font: 600 0.9rem var(--f-body); color: var(--ink); background: var(--surface); border: 1px solid var(--line);
+  border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+.btn:hover:not(:disabled) { border-color: var(--ours); }
+.btn:disabled { opacity: 0.45; cursor: default; }
+.btn.primary { background: var(--ours); border-color: var(--ours); color: var(--surface); }
+.check { display: inline-flex; gap: 8px; align-items: center; font-size: 0.9rem; cursor: pointer; }
+.side2 { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px; align-items: start; }
+.side2 > div { min-width: 0; }
+.count { font: 600 1.6rem var(--f-mono); font-variant-numeric: tabular-nums; }
+.note { color: var(--muted); font-size: 0.86rem; }
+.log { width: 100%; border-collapse: collapse; font-size: 0.86rem; font-variant-numeric: tabular-nums; }
+.logbox { overflow-x: auto; max-height: 300px; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+.log th { text-align: left; font-weight: 600; color: var(--muted); font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 8px 10px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--surface); }
+.log td { padding: 6px 10px; border-bottom: 1px solid var(--line); font-family: var(--f-mono); white-space: nowrap; }
+.log tr:last-child td { border-bottom: 0; }
+.log tr.now td { background: var(--ours-soft); }
+.drifts { display: flex; flex-wrap: wrap; gap: 6px; }
+.status { font-size: 1.05rem; font-weight: 500; min-height: 3em; }
+.chat { font-style: italic; color: var(--muted); }
+.lesson { border-top: 1px solid var(--line); padding-top: 14px; display: grid; gap: 6px; }
+.lesson p { max-width: 70ch; }
+@media (max-width: 820px) {
+  header, .board { grid-template-columns: minmax(0, 1fr); }
+  .grid { max-width: 400px; }
+}
+@media (max-width: 460px) {
+  .side2 { grid-template-columns: minmax(0, 1fr); }
+  .rules li { grid-template-columns: minmax(0, 1fr); gap: 0; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .cell, .tab { transition: background-color .25s, border-color .25s; }
+}
+</style>
+
+<main class="wrap">
+  <header>
+    <div>
+      <h1>Echoes</h1>
+      <p class="lede">Battleship cu sonar, în care ținta se mișcă. Un joc nou, gândit pentru harness-uri AI.</p>
+      <p class="byline">Echipa path-to-glory · AI Harness Arena, EESTEC Olympics 2026</p>
+    </div>
+    <ul class="rules">
+      <li><strong>Grila</strong><span>5x5. Fiecare jucător are un far ascuns. Îl vezi pe al tău, niciodată pe al adversarului.</span></li>
+      <li><code>ping c3</code><span>Afli distanța Manhattan de la c3 până la farul inamic (ecoul).</span></li>
+      <li><code>drift east</code><span>Îți muți farul o căsuță, de cel mult 3 ori. În runda aceea nu auzi nimic.</span></li>
+      <li><strong>Simultan</strong><span>Ambii aleg în același timp. Drift-urile se aplică înaintea ping-urilor, deci poți fenta un ping.</span></li>
+      <li><strong>Victorie</strong><span>Primul ecou 0 câștigă. După 14 runde câștigă cel mai mic ecou auzit.</span></li>
+    </ul>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Moduri">
+    <button class="tab" role="tab" id="tab-replay" aria-controls="view-replay" aria-selected="true">Reluare: meciul bot-ului nostru</button>
+    <button class="tab" role="tab" id="tab-play" aria-controls="view-play" aria-selected="false">Joacă tu</button>
+  </nav>
+
+  <section id="view-replay" role="tabpanel" aria-labelledby="tab-replay" class="panel">
+    <dl class="stats">
+      <div><dt>încercări ale lui Haiku de a scrie simulatorul, + 1 reparație</dt><dd>3</dd></div>
+      <div><dt>conversii stare ↔ text corecte</dt><dd>196/196</dd></div>
+      <div><dt>verificări de mutări legale</dt><dd>980/980</dd></div>
+      <div><dt>gata după, din 600 s de pregătire</dt><dd>236 s</dd></div>
+      <div><dt>rezultat contra rr_top_bot, 0 avertismente</dt><dd>2–0</dd></div>
+    </dl>
+    <p class="note">Bot-ul nostru (imaginea de T3) nu a văzut jocul niciodată. A primit regulile, și-a scris singur simulatorul, l-a validat și a jucat. Mai jos e jocul 1, rundă cu rundă, văzut din perspectiva bot-ului.</p>
+
+    <div class="board">
+      <div class="gridwrap">
+        <div class="grid" id="rgrid" aria-label="Grila bot-ului nostru"></div>
+        <div class="legend">
+          <span><i class="sw d"></i>farul nostru</span>
+          <span><i class="sw f"></i>farul inamic</span>
+          <span><i class="sw p"></i>încă posibil pentru farul inamic</span>
+          <span class="mono">3 = ecoul unui ping</span>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="roundhead">
+          <h2 id="rtitle">Start</h2>
+          <label class="check"><input type="checkbox" id="reveal" checked> Arată farul inamic</label>
+        </div>
+        <p class="caption" id="rcap"></p>
+        <div class="controls">
+          <button class="btn" id="rfirst" aria-label="Prima rundă">⏮</button>
+          <button class="btn" id="rprev" aria-label="Runda anterioară">◀ Înapoi</button>
+          <button class="btn primary" id="rnext">Înainte ▶</button>
+          <button class="btn" id="rplay">Redă automat</button>
+        </div>
+        <div class="side2">
+          <div class="gridwrap">
+            <h3>Ce știe adversarul despre noi</h3>
+            <div class="grid mini" id="rmini" aria-label="Ce știe adversarul despre farul nostru"></div>
+          </div>
+          <div>
+            <h3>Celule posibile</h3>
+            <p><span class="count" id="rknowUs">25</span> <span class="note">pentru farul inamic, după ecourile noastre</span></p>
+            <p><span class="count" id="rknowThem">25</span> <span class="note">pentru farul nostru, după ecourile adversarului</span></p>
+          </div>
+        </div>
+        <div class="logbox">
+          <table class="log">
+            <thead><tr><th>Runda</th><th>Bot-ul nostru</th><th>Adversarul</th></tr></thead>
+            <tbody id="rlog"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="lesson">
+      <h3>Ce am învățat din acest joc</h3>
+      <p>După runda 2 rămăsese o singură celulă posibilă, a3, dar bot-ul a dat ping acolo abia în runda 8. Logul arată de ce. Simulatorul filtra corect lumile ascunse, însă căutarea tratează jocul ca simultan: adversarul poate face drift chiar în runda în care tragi, așa că <span class="mono">ping a3</span> nu e o victorie garantată, iar verificarea de victorie imediată nu se declanșează. Rămâne regret matching peste jocuri simulate cu mutări aleatoare. Un jucător aleator găsește rar un far în 14 runde, deci valorile au ieșit aproape 0 (<span class="mono">0,04</span>), iar amestecul a fost practic zgomot (în runda 7, <span class="mono">ping a3</span> avea probabilitatea 0,09). Un joc nou a scos la iveală o slăbiciune pe care niciun joc de pe platformă nu o arătase.</p>
+    </div>
+  </section>
+
+  <section id="view-play" role="tabpanel" aria-labelledby="tab-play" class="panel" hidden>
+    <p class="note">Joci contra unui bot simplu din pagină, fără LLM: ține evidența celulelor în care poate fi farul tău, cu fiecare ecou și fiecare drift al tău, și trage acolo unde ecoul îi spune cel mai mult. Apasă pe o celulă ca să dai ping.</p>
+    <div class="board">
+      <div class="gridwrap">
+        <div class="grid" id="pgrid" aria-label="Grila ta. Apasă o celulă ca să dai ping."></div>
+        <div class="legend">
+          <span><i class="sw d"></i>farul tău</span>
+          <span><i class="sw p"></i>unde poate fi farul bot-ului</span>
+          <span class="mono">2 = ecoul tău</span>
+          <span class="mono" style="color:var(--enemy)">1 = ecoul bot-ului</span>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="roundhead">
+          <h2 id="ptitle">Runda 1 din 14</h2>
+          <label class="check"><input type="checkbox" id="phelp" checked> Arată celulele posibile</label>
+        </div>
+        <p class="status" id="pstatus">Alege o celulă pentru ping sau mută-ți farul.</p>
+        <div class="drifts" id="pdrifts"></div>
+        <p class="note" id="pdriftnote"></p>
+        <div class="side2">
+          <div>
+            <h3>Bot-ul mai bănuiește</h3>
+            <p><span class="count" id="pbotknow">24</span> <span class="note">celule pentru farul tău</span></p>
+          </div>
+          <div>
+            <h3>Chat-ul bot-ului</h3>
+            <p class="chat" id="pchat">„Bună. Spor la căutat.”</p>
+          </div>
+        </div>
+        <div class="controls"><button class="btn" id="pnew">Joc nou</button></div>
+        <div class="logbox">
+          <table class="log">
+            <thead><tr><th>Runda</th><th>Tu</th><th>Bot-ul</th></tr></thead>
+            <tbody id="plog"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+  const N = 5, COLS = "abcde";
+  const DIRS = { north: [0, -1], south: [0, 1], west: [-1, 0], east: [1, 0] };
+  const DIR_RO = { north: "↑ nord", south: "↓ sud", west: "← vest", east: "→ est" };
+  const ALL = [];
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) ALL.push(COLS[c] + (r + 1));
+  const xy = s => [COLS.indexOf(s[0]), +s.slice(1) - 1];
+  const name = (c, r) => COLS[c] + (r + 1);
+  const dist = (a, b) => { const [ac, ar] = xy(a), [bc, br] = xy(b); return Math.abs(ac - bc) + Math.abs(ar - br); };
+  const step = (s, d) => { const [c, r] = xy(s), [dc, dr] = DIRS[d]; const nc = c + dc, nr = r + dr;
+    return nc >= 0 && nc < N && nr >= 0 && nr < N ? name(nc, nr) : null; };
+  const expand = set => { const out = new Set(); for (const s of set) for (const d in DIRS) { const t = step(s, d); if (t) out.add(t); } return out; };
+  // knowledge of the hunted beacon after a list of rounds; each round: {hunter:{ping,echo}|{drift}, hunted:{...}}
+  function know(rounds, hunter, hunted, start) {
+    let S = new Set(start || ALL);
+    for (const rd of rounds) {
+      if (rd[hunted].drift) S = expand(S);
+      if (rd[hunter].ping) S = new Set([...S].filter(c => dist(c, rd[hunter].ping) === rd[hunter].echo));
+    }
+    return S;
+  }
+  function buildGrid(el) {
+    el.style.setProperty("--n", N);
+    el.innerHTML = "";
+    el.appendChild(document.createElement("span"));
+    for (let c = 0; c < N; c++) { const a = document.createElement("span"); a.className = "axis"; a.textContent = COLS[c]; el.appendChild(a); }
+    const cells = {};
+    for (let r = 0; r < N; r++) {
+      const a = document.createElement("span"); a.className = "axis"; a.textContent = r + 1; el.appendChild(a);
+      for (let c = 0; c < N; c++) {
+        const isBtn = el.dataset.click === "1";
+        const d = document.createElement(isBtn ? "button" : "div");
+        d.className = "cell"; d.dataset.cell = name(c, r);
+        if (isBtn) { d.type = "button"; d.setAttribute("aria-label", "ping " + name(c, r)); }
+        el.appendChild(d); cells[name(c, r)] = d;
+      }
+    }
+    return cells;
+  }
+  function paint(cells, o) {
+    for (const k in cells) {
+      const d = cells[k];
+      d.className = "cell" + (o.possible && o.possible.has(k) ? (o.threat ? " threat" : " possible") : "") + (o.ring && o.ring.has(k) ? " ring" : "");
+      let html = "";
+      if (o.mine === k) html += '<span class="dot"></span>';
+      else if (o.foe === k) html += '<span class="foe"></span>';
+      if (o.echoes && o.echoes[k] !== undefined) html += '<span class="echo">' + o.echoes[k] + "</span>";
+      if (o.theirEchoes && o.theirEchoes[k] !== undefined) html += '<span class="echo them">' + o.theirEchoes[k] + "</span>";
+      d.innerHTML = html;
+    }
+  }
+
+  /* ---------- Replay: the real match (tests/out/sweep-20261115-110023, game 1, seed 275860282) ---------- */
+  const R = [
+    { us: { ping: "a4", echo: 1 }, them: { ping: "c3", echo: 3 }, usPos: "e2" },
+    { us: { ping: "e5", echo: 6 }, them: { ping: "a3", echo: 5 }, usPos: "e2" },
+    { us: { ping: "c3", echo: 2 }, them: { ping: "d4", echo: 3 }, usPos: "e2" },
+    { us: { ping: "b1", echo: 3 }, them: { ping: "e1", echo: 1 }, usPos: "e2" },
+    { us: { ping: "c5", echo: 4 }, them: { ping: "d2", echo: 1 }, usPos: "e2" },
+    { us: { drift: "west" }, them: { ping: "b5", echo: 5 }, usPos: "d2" },
+    { us: { drift: "south" }, them: { ping: "b4", echo: 3 }, usPos: "d3" },
+    { us: { ping: "a3", echo: 0 }, them: { ping: "a1", echo: 5 }, usPos: "d3" },
+  ];
+  const ENEMY = "a3", START = "e2";
+  const CAPS = [
+    ["Start", "Farul nostru e în e2. Farul inamic e ascuns. Pentru bot, oricare dintre celelalte 24 de celule e posibilă.", false],
+    ["Runda 1", "ping a4 → ecou 1. Farul inamic e la un pas de a4, deci au rămas doar a3, a5 și b4.", false],
+    ["Runda 2", "ping e5 → ecou 6. Dintre cele trei, doar a3 e la distanța 6 de e5. Jocul putea fi câștigat chiar în runda următoare.", true],
+    ["Runda 3", "ping c3 → ecou 2, deși a3 era singura opțiune. Căutarea a dat lui ping a3 o valoare aproape 0, ca tuturor mutărilor, și a ales din amestec. Explicația e mai jos.", true],
+    ["Runda 4", "ping b1 → 3. Adversarul a dat ping în e1 și a auzit 1: se apropie de farul nostru.", false],
+    ["Runda 5", "ping c5 → 4. Adversarul dă ping în d2 și aude din nou 1. Pentru el, farul nostru mai poate fi doar în e2 sau d1.", true],
+    ["Runda 6", "Bot-ul fuge: drift west, din e2 în d2. Adversarul vede că ne-am mutat, dar nu și încotro, deci incertitudinea lui crește de la 2 la 3 celule.", false],
+    ["Runda 7", "Încă un drift, south, în d3. Adversarul ratează din nou (b4 → 3). Pentru el, farul nostru poate fi acum în 4 celule.", false],
+    ["Runda 8", "ping a3 → ecou 0: farul inamic e găsit, bot-ul câștigă. Și jocul 2 (7x7, ecouri zgomotoase) a fost al nostru: adversarul a trimis de două ori o mutare ilegală.", true],
+  ];
+  const rcells = buildGrid(document.getElementById("rgrid"));
+  const mcells = buildGrid(document.getElementById("rmini"));
+  let k = 0, timer = null;
+  const fmt = a => a.ping ? `ping ${a.ping} → ${a.echo}` : `drift ${a.drift}`;
+  const fmtThem = a => a.ping ? `ping ${a.ping} → ${a.echo}` : "drift (direcție ascunsă)";
+  function renderReplay() {
+    const done = R.slice(0, k).map(x => ({ us: x.us, them: x.them }));
+    const usKnow = know(done, "us", "them", ALL.filter(c => c !== START));
+    const themKnow = know(done, "them", "us", ALL.filter(c => c !== ENEMY));
+    const pos = k ? R[k - 1].usPos : START;
+    const echoes = {}, theirs = {};
+    done.forEach(x => { if (x.us.ping) echoes[x.us.ping] = x.us.echo; if (x.them.ping) theirs[x.them.ping] = x.them.echo; });
+    let ring = null;
+    const last = k ? R[k - 1].us : null;
+    if (last && last.ping && last.echo > 0) ring = new Set(ALL.filter(c => dist(c, last.ping) === last.echo));
+    paint(rcells, { possible: usKnow, ring, mine: pos, foe: document.getElementById("reveal").checked ? ENEMY : null, echoes });
+    paint(mcells, { possible: themKnow, threat: true, mine: pos, theirEchoes: theirs });
+    document.getElementById("rknowUs").textContent = usKnow.size;
+    document.getElementById("rknowThem").textContent = themKnow.size;
+    const [t, cap, key] = CAPS[k];
+    document.getElementById("rtitle").textContent = k ? `${t} din 14` : t;
+    const capEl = document.getElementById("rcap");
+    capEl.textContent = cap; capEl.classList.toggle("key", key);
+    document.getElementById("rlog").innerHTML = done.map((x, i) =>
+      `<tr class="${i === k - 1 ? "now" : ""}"><td>${i + 1}</td><td>${fmt(x.us)}</td><td>${fmtThem(x.them)}</td></tr>`).join("");
+    document.getElementById("rfirst").disabled = document.getElementById("rprev").disabled = k === 0;
+    document.getElementById("rnext").disabled = k === R.length;
+  }
+  function stopPlay() { if (timer) { clearInterval(timer); timer = null; document.getElementById("rplay").textContent = "Redă automat"; } }
+  document.getElementById("rfirst").onclick = () => { stopPlay(); k = 0; renderReplay(); };
+  document.getElementById("rprev").onclick = () => { stopPlay(); k = Math.max(0, k - 1); renderReplay(); };
+  document.getElementById("rnext").onclick = () => { stopPlay(); k = Math.min(R.length, k + 1); renderReplay(); };
+  document.getElementById("rplay").onclick = () => {
+    if (timer) return stopPlay();
+    if (k === R.length) k = 0;
+    document.getElementById("rplay").textContent = "Pauză";
+    renderReplay();
+    timer = setInterval(() => { if (k >= R.length) return stopPlay(); k++; renderReplay(); }, 2600);
+  };
+  document.getElementById("reveal").onchange = renderReplay;
+  renderReplay();
+
+  /* ---------- Play: you against a deducing bot ---------- */
+  const MAX_ROUNDS = 14, MAX_DRIFTS = 3;
+  const CHAT = ["Ecoul tău a venit de departe. Sau poate nu.", "Nu sunt unde crezi.", "Am timp. Tu ai?",
+    "Încă o rundă, încă un indiciu.", "Aproape. Sau foarte departe.", "Sonarul nu minte. Eu da.", "Ascult."];
+  const pgridEl = document.getElementById("pgrid"); pgridEl.dataset.click = "1";
+  const pcells = buildGrid(pgridEl);
+  let G;
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  function newGame() {
+    const you = pick(ALL); let bot = pick(ALL); while (bot === you) bot = pick(ALL);
+    G = { you, bot, drifts: { you: 0, bot: 0 }, round: 1, rounds: [], best: { you: 99, bot: 99 }, over: null,
+      chat: "„Bună. Spor la căutat.”" };
+    renderPlay();
+  }
+  function botKnowsYou() { return know(G.rounds, "bot", "you", ALL.filter(c => c !== G.bot)); }
+  function youKnowBot() { return know(G.rounds, "you", "bot", ALL.filter(c => c !== G.you)); }
+  function botMove() {
+    const K = [...botKnowsYou()];
+    const threat = youKnowBot();
+    const driftDirs = Object.keys(DIRS).filter(d => step(G.bot, d));
+    if (G.drifts.bot < MAX_DRIFTS && threat.size <= 2 && K.length > 1) {
+      const safe = driftDirs.filter(d => !threat.has(step(G.bot, d)));
+      return { drift: pick(safe.length ? safe : driftDirs) };
+    }
+    if (K.length === 1) return { ping: K[0] };
+    let best = null, bestScore = Infinity;
+    for (const c of ALL) {
+      const buckets = {};
+      for (const t of K) { const e = dist(c, t); buckets[e] = (buckets[e] || 0) + 1; }
+      const worst = Math.max(...Object.values(buckets)) - (buckets[0] ? 0.5 : 0) + Math.random() * 0.1;
+      if (worst < bestScore) { bestScore = worst; best = c; }
+    }
+    return { ping: best };
+  }
+  function playRound(yourAct) {
+    if (G.over) return;
+    const botAct = botMove();
+    if (yourAct.drift) { G.you = step(G.you, yourAct.drift); G.drifts.you++; }
+    if (botAct.drift) { G.bot = step(G.bot, botAct.drift); G.drifts.bot++; }
+    if (yourAct.ping) { yourAct.echo = dist(yourAct.ping, G.bot); G.best.you = Math.min(G.best.you, yourAct.echo); }
+    if (botAct.ping) { botAct.echo = dist(botAct.ping, G.you); G.best.bot = Math.min(G.best.bot, botAct.echo); }
+    G.rounds.push({ you: yourAct, bot: botAct });
+    const youFound = yourAct.ping && yourAct.echo === 0, botFound = botAct.ping && botAct.echo === 0;
+    if (youFound || botFound) G.over = youFound && botFound ? "draw" : youFound ? "you" : "bot";
+    else if (G.round >= MAX_ROUNDS) G.over = G.best.you < G.best.bot ? "you" : G.best.bot < G.best.you ? "bot" : "draw";
+    else G.round++;
+    G.chat = G.over === "bot" ? "„Te-am auzit. GG.”" : G.over === "you" ? "„Bine jucat. GG.”" : "„" + pick(CHAT) + "”";
+    renderPlay();
+  }
+  function renderPlay() {
+    const echoes = {}, theirs = {};
+    G.rounds.forEach(x => { if (x.you.ping) echoes[x.you.ping] = x.you.echo; if (x.bot.ping) theirs[x.bot.ping] = x.bot.echo; });
+    const help = document.getElementById("phelp").checked;
+    paint(pcells, { possible: help ? youKnowBot() : null, mine: G.you, foe: G.over ? G.bot : null, echoes, theirEchoes: theirs });
+    for (const k in pcells) pcells[k].disabled = !!G.over;
+    document.getElementById("ptitle").textContent = G.over ? "Joc terminat" : `Runda ${G.round} din ${MAX_ROUNDS}`;
+    const st = document.getElementById("pstatus");
+    if (!G.over) st.textContent = G.rounds.length ? "Alege următoarea mutare: ping într-o celulă sau drift." : "Alege o celulă pentru ping sau mută-ți farul.";
+    else if (G.over === "draw") st.textContent = `Egal. Farul bot-ului era în ${G.bot}.`;
+    else if (G.over === "you") st.textContent = `Ai câștigat! Farul bot-ului era în ${G.bot}.`;
+    else st.textContent = `Bot-ul a câștigat: ți-a găsit farul în ${G.you}. Farul lui era în ${G.bot}.`;
+    const dEl = document.getElementById("pdrifts"); dEl.innerHTML = "";
+    for (const d of Object.keys(DIRS)) {
+      const b = document.createElement("button"); b.className = "btn"; b.type = "button"; b.textContent = "drift " + DIR_RO[d];
+      b.disabled = !!G.over || G.drifts.you >= MAX_DRIFTS || !step(G.you, d);
+      b.onclick = () => playRound({ drift: d });
+      dEl.appendChild(b);
+    }
+    document.getElementById("pdriftnote").textContent = `Drift-uri folosite: tu ${G.drifts.you} din ${MAX_DRIFTS}, bot-ul ${G.drifts.bot} din ${MAX_DRIFTS}.`;
+    document.getElementById("pbotknow").textContent = botKnowsYou().size;
+    document.getElementById("pchat").textContent = G.chat;
+    const fmtB = a => a.ping ? `ping ${a.ping} → ${a.echo}` : "drift (ascuns)";
+    document.getElementById("plog").innerHTML = G.rounds.map((x, i) =>
+      `<tr class="${i === G.rounds.length - 1 ? "now" : ""}"><td>${i + 1}</td><td>${fmt(x.you)}</td><td>${fmtB(x.bot)}</td></tr>`).join("");
+  }
+  for (const k in pcells) pcells[k].onclick = () => playRound({ ping: k });
+  document.getElementById("phelp").onchange = renderPlay;
+  document.getElementById("pnew").onclick = newGame;
+  newGame();
+
+  /* ---------- Tabs (#replay / #play) ---------- */
+  function show(view) {
+    const play = view === "play";
+    document.getElementById("view-replay").hidden = play;
+    document.getElementById("view-play").hidden = !play;
+    document.getElementById("tab-replay").setAttribute("aria-selected", String(!play));
+    document.getElementById("tab-play").setAttribute("aria-selected", String(play));
+    if (play) stopPlay();
+  }
+  document.getElementById("tab-replay").onclick = () => { location.hash = "replay"; show("replay"); };
+  document.getElementById("tab-play").onclick = () => { location.hash = "play"; show("play"); };
+  window.addEventListener("hashchange", () => show(location.hash === "#play" ? "play" : "replay"));
+  show(location.hash === "#play" ? "play" : "replay");
+})();
+</script>
